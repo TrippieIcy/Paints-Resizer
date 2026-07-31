@@ -186,6 +186,33 @@
     flex:1;
     accent-color:var(--wood);
   }
+  .nudge-pad{
+    display:grid;
+    grid-template-columns:repeat(3, 40px);
+    grid-template-rows:repeat(3, 40px);
+    gap:4px;
+    justify-content:center;
+    margin-top:14px;
+  }
+  .nudge-btn{
+    background:var(--panel);
+    border:1px solid #33291F;
+    border-radius:8px;
+    color:var(--text);
+    font-size:15px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .nudge-btn:active{background:var(--panel-2); border-color:var(--wood);}
+  .nudge-center{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    color:var(--muted);
+    font-size:13px;
+  }
 
   /* export */
   .filename-input{
@@ -259,7 +286,18 @@
     </div>
     <div class="zoom-row">
       <span>Zoom</span>
-      <input type="range" id="zoomSlider" min="100" max="400" value="100">
+      <input type="range" id="zoomSlider" min="20" max="400" value="100">
+    </div>
+    <div class="nudge-pad" id="nudgePad">
+      <span></span>
+      <button type="button" class="nudge-btn" data-dx="0" data-dy="-1" aria-label="Up">▲</button>
+      <span></span>
+      <button type="button" class="nudge-btn" data-dx="-1" data-dy="0" aria-label="Left">◀</button>
+      <span class="nudge-center">✛</span>
+      <button type="button" class="nudge-btn" data-dx="1" data-dy="0" aria-label="Right">▶</button>
+      <span></span>
+      <button type="button" class="nudge-btn" data-dx="0" data-dy="1" aria-label="Down">▼</button>
+      <span></span>
     </div>
   </section>
 
@@ -397,8 +435,15 @@ function applyTransform() {
 function clampOffsets() {
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
   const dispW = naturalW * scale, dispH = naturalH * scale;
-  offsetX = Math.min(0, Math.max(vw - dispW, offsetX));
-  offsetY = Math.min(0, Math.max(vh - dispH, offsetY));
+  // When the image is larger than the frame (normal case), this keeps it
+  // covering the frame edge-to-edge while panning. When zoomed out past
+  // that (dispW/dispH smaller than the frame), it instead lets the image
+  // slide freely from flush-left to flush-right (and flush-top to
+  // flush-bottom), so it can still be repositioned inside the frame.
+  const loX = Math.min(0, vw - dispW), hiX = Math.max(0, vw - dispW);
+  const loY = Math.min(0, vh - dispH), hiY = Math.max(0, vh - dispH);
+  offsetX = Math.min(hiX, Math.max(loX, offsetX));
+  offsetY = Math.min(hiY, Math.max(loY, offsetY));
 }
 
 // drag to pan
@@ -427,6 +472,19 @@ zoomSlider.addEventListener('input', e => {
   offsetY = vh/2 - centerImgY * scale;
   clampOffsets();
   applyTransform();
+});
+
+// nudge pad: precise left/right/up/down adjustment (in addition to
+// dragging the image directly), handy for fine-tuning on a phone.
+const NUDGE_STEP = 8; // px per tap, at the viewport's own scale
+document.querySelectorAll('.nudge-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!naturalW) return;
+    offsetX += Number(btn.dataset.dx) * NUDGE_STEP;
+    offsetY += Number(btn.dataset.dy) * NUDGE_STEP;
+    clampOffsets();
+    applyTransform();
+  });
 });
 
 filenameInput.addEventListener('input', () => { filenameTouched = true; });
