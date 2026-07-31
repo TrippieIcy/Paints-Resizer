@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Painting Texture Cropper — Minecraft</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#14120F">
+<link rel="icon" href="icon-192.png" sizes="192x192" type="image/png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Painting Crop">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#14120F;
+    --panel:#1E1B17;
+    --panel-2:#262119;
+    --wood:#A66A3D;
+    --wood-dark:#6E4425;
+    --text:#EDE6D8;
+    --muted:#9C9382;
+    --sage:#6FA88C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(ellipse at 50% -10%, #201D18 0%, var(--bg) 55%);
+    color:var(--text);
+    font-family:'Inter',system-ui,sans-serif;
+    min-height:100vh;
+    padding:28px 18px 60px;
+  }
+  .page{max-width:420px;margin:0 auto;}
+  .eyebrow{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    letter-spacing:.14em;
+    color:var(--sage);
+    margin:0 0 10px;
+    font-weight:700;
+  }
+  h1{
+    font-family:'JetBrains Mono',monospace;
+    font-size:26px;
+    line-height:1.15;
+    margin:0 0 10px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .lede{
+    color:var(--muted);
+    font-size:14.5px;
+    line-height:1.5;
+    margin:0 0 34px;
+  }
+  .step{
+    margin-bottom:30px;
+    transition:opacity .25s ease;
+  }
+  .step[data-locked="true"]{opacity:.35; pointer-events:none;}
+  .step-label{
+    display:flex;
+    align-items:center;
+    gap:10px;
+    font-size:13px;
+    font-weight:600;
+    color:var(--text);
+    margin:0 0 14px;
+  }
+  .step-label span{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:20px;height:20px;
+    border-radius:5px;
+    background:var(--panel-2);
+    border:1px solid var(--wood-dark);
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--wood);
+    flex-shrink:0;
+  }
+
+  /* size grid */
+  .size-grid{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+  }
+  .size-btn{
+    background:var(--panel);
+    border:1px solid #33291F;
+    border-radius:8px;
+    padding:12px 8px 10px;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:8px;
+    cursor:pointer;
+    color:var(--muted);
+  }
+  .size-btn:active{transform:scale(.97);}
+  .size-btn.active{
+    border-color:var(--wood);
+    background:var(--panel-2);
+    color:var(--text);
+    box-shadow:0 0 0 1px var(--wood) inset;
+  }
+  .size-btn .mini{
+    display:grid;
+    gap:1px;
+    background:transparent;
+  }
+  .size-btn .mini div{
+    width:6px;height:6px;
+    background:#4A3D2E;
+    border-radius:1px;
+  }
+  .size-btn.active .mini div{background:var(--wood);}
+  .size-btn .lbl{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    font-weight:600;
+  }
+
+  /* dropzone */
+  .dropzone{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    border:1.5px dashed #4A3D2E;
+    border-radius:10px;
+    padding:26px 16px;
+    color:var(--muted);
+    font-size:13.5px;
+    cursor:pointer;
+    background:var(--panel);
+  }
+  .dropzone.drag{border-color:var(--wood); color:var(--text);}
+
+  /* frame */
+  .frame-wrap{display:flex; flex-direction:column; align-items:center;}
+  .frame{
+    padding:12px;
+    border-radius:5px;
+    background:linear-gradient(150deg, var(--wood), var(--wood-dark) 80%);
+    box-shadow:0 10px 26px rgba(0,0,0,.5), inset 0 0 0 2px rgba(0,0,0,.25);
+  }
+  .viewport{
+    position:relative;
+    overflow:hidden;
+    background:#0A0908;
+    border-radius:2px;
+    touch-action:none;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.5);
+  }
+  .viewport img{
+    position:absolute;
+    left:0; top:0;
+    transform-origin:0 0;
+    user-select:none;
+    -webkit-user-drag:none;
+    will-change:transform;
+  }
+  .plaque{
+    font-family:'JetBrains Mono',monospace;
+    font-size:11px;
+    color:var(--muted);
+    letter-spacing:.06em;
+    margin:10px 0 0;
+  }
+  .zoom-row{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    margin-top:18px;
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .zoom-row input[type=range]{
+    flex:1;
+    accent-color:var(--wood);
+  }
+
+  /* export */
+  .filename-input{
+    width:100%;
+    background:var(--panel);
+    border:1px solid #33291F;
+    color:var(--text);
+    font-family:'JetBrains Mono',monospace;
+    font-size:13.5px;
+    padding:11px 12px;
+    border-radius:8px;
+    margin-bottom:10px;
+  }
+  .download-btn{
+    width:100%;
+    background:var(--wood);
+    color:#1A1410;
+    border:none;
+    border-radius:8px;
+    padding:13px;
+    font-family:'Inter',sans-serif;
+    font-weight:700;
+    font-size:14.5px;
+    cursor:pointer;
+  }
+  .download-btn:active{background:var(--wood-dark); color:var(--text);}
+  .hint{
+    font-size:12.5px;
+    color:var(--muted);
+    line-height:1.5;
+    margin:14px 0 0;
+  }
+  .hint code{
+    font-family:'JetBrains Mono',monospace;
+    background:var(--panel-2);
+    padding:1px 5px;
+    border-radius:4px;
+    color:var(--sage);
+    font-size:11.5px;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <p class="eyebrow">16 PIXELS PER BLOCK</p>
+  <h1>Painting Texture Cropper</h1>
+  <p class="lede">Crop any photo to the exact pixel size Minecraft expects for a given painting frame, then drop it straight into your resource pack.</p>
+
+  <section class="step" id="step1">
+    <p class="step-label"><span>1</span> Choose the painting size</p>
+    <div class="size-grid" id="sizeGrid"></div>
+  </section>
+
+  <section class="step" id="step2" data-locked="true">
+    <p class="step-label"><span>2</span> Upload a photo</p>
+    <label class="dropzone" id="dropzone">
+      <input type="file" id="fileInput" accept="image/*" hidden disabled>
+      <span id="dropzoneText">Tap to choose an image</span>
+    </label>
+  </section>
+
+  <section class="step" id="step3" data-locked="true">
+    <p class="step-label"><span>3</span> Position the crop</p>
+    <div class="frame-wrap">
+      <div class="frame">
+        <div class="viewport" id="viewport">
+          <img id="cropImg" draggable="false" alt="">
+        </div>
+      </div>
+      <p class="plaque" id="plaque">— × — px</p>
+    </div>
+    <div class="zoom-row">
+      <span>Zoom</span>
+      <input type="range" id="zoomSlider" min="100" max="400" value="100">
+    </div>
+  </section>
+
+  <section class="step" id="step4" data-locked="true">
+    <p class="step-label"><span>4</span> Export the file</p>
+    <input type="text" id="filenameInput" class="filename-input" spellcheck="false" autocapitalize="off">
+    <button id="downloadBtn" class="download-btn">Download PNG</button>
+    <p class="hint">Rename this file to match the slot in your pack (e.g. <code>test_4x4_1.png</code>), then drop it into <code>rp/textures/painting/</code>, replacing the existing one.</p>
+  </section>
+</div>
+
+<script>
+const SIZES = [
+  {w:1,h:1},{w:1,h:2},{w:2,h:1},
+  {w:2,h:2},{w:3,h:3},{w:3,h:4},
+  {w:4,h:2},{w:4,h:3},{w:4,h:4},
+];
+const MAX_BOX = 280;
+
+const sizeGrid = document.getElementById('sizeGrid');
+const step2 = document.getElementById('step2');
+const step3 = document.getElementById('step3');
+const step4 = document.getElementById('step4');
+const dropzone = document.getElementById('dropzone');
+const dropzoneText = document.getElementById('dropzoneText');
+const fileInput = document.getElementById('fileInput');
+const viewport = document.getElementById('viewport');
+const cropImg = document.getElementById('cropImg');
+const plaque = document.getElementById('plaque');
+const zoomSlider = document.getElementById('zoomSlider');
+const filenameInput = document.getElementById('filenameInput');
+const downloadBtn = document.getElementById('downloadBtn');
+
+let selectedSize = null;
+let naturalW = 0, naturalH = 0;
+let scale = 1, baseScale = 1, offsetX = 0, offsetY = 0;
+let dragging = false, dragStart = {x:0,y:0}, startOffset = {x:0,y:0};
+let filenameTouched = false;
+
+// build size picker
+SIZES.forEach(size => {
+  const btn = document.createElement('button');
+  btn.className = 'size-btn';
+  btn.type = 'button';
+
+  const mini = document.createElement('div');
+  mini.className = 'mini';
+  mini.style.gridTemplateColumns = `repeat(${size.w}, 6px)`;
+  mini.style.gridTemplateRows = `repeat(${size.h}, 6px)`;
+  for (let i = 0; i < size.w * size.h; i++) mini.appendChild(document.createElement('div'));
+
+  const lbl = document.createElement('span');
+  lbl.className = 'lbl';
+  lbl.textContent = `${size.w}×${size.h}`;
+
+  btn.appendChild(mini);
+  btn.appendChild(lbl);
+  btn.addEventListener('click', () => selectSize(size, btn));
+  sizeGrid.appendChild(btn);
+});
+
+function selectSize(size, btn) {
+  selectedSize = size;
+  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+
+  step2.removeAttribute('data-locked');
+  fileInput.disabled = false;
+
+  if (!filenameTouched) {
+    filenameInput.value = `painting_${size.w}x${size.h}.png`;
+  }
+  plaque.textContent = `${size.w*16} × ${size.h*16} px`;
+
+  if (naturalW) layoutImage();
+}
+
+// upload handling
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) handleFile(f);
+});
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) handleFile(f);
+});
+
+function handleFile(file) {
+  if (!file.type.startsWith('image/')) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    cropImg.onload = () => {
+      naturalW = cropImg.naturalWidth;
+      naturalH = cropImg.naturalHeight;
+      dropzoneText.textContent = file.name;
+      step3.removeAttribute('data-locked');
+      step4.removeAttribute('data-locked');
+      layoutImage();
+    };
+    cropImg.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function layoutImage() {
+  if (!selectedSize || !naturalW) return;
+  const ratio = selectedSize.w / selectedSize.h;
+  let boxW, boxH;
+  if (ratio >= 1) { boxW = MAX_BOX; boxH = MAX_BOX / ratio; }
+  else { boxH = MAX_BOX; boxW = MAX_BOX * ratio; }
+  viewport.style.width = boxW + 'px';
+  viewport.style.height = boxH + 'px';
+
+  requestAnimationFrame(() => {
+    const vw = viewport.clientWidth, vh = viewport.clientHeight;
+    baseScale = Math.max(vw / naturalW, vh / naturalH);
+    scale = baseScale;
+    zoomSlider.value = 100;
+    offsetX = (vw - naturalW * scale) / 2;
+    offsetY = (vh - naturalH * scale) / 2;
+    applyTransform();
+  });
+}
+
+function applyTransform() {
+  cropImg.style.width = naturalW * scale + 'px';
+  cropImg.style.height = naturalH * scale + 'px';
+  cropImg.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
+}
+
+function clampOffsets() {
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  const dispW = naturalW * scale, dispH = naturalH * scale;
+  offsetX = Math.min(0, Math.max(vw - dispW, offsetX));
+  offsetY = Math.min(0, Math.max(vh - dispH, offsetY));
+}
+
+// drag to pan
+viewport.addEventListener('pointerdown', e => {
+  dragging = true;
+  viewport.setPointerCapture(e.pointerId);
+  dragStart = {x:e.clientX, y:e.clientY};
+  startOffset = {x:offsetX, y:offsetY};
+});
+viewport.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  offsetX = startOffset.x + (e.clientX - dragStart.x);
+  offsetY = startOffset.y + (e.clientY - dragStart.y);
+  clampOffsets();
+  applyTransform();
+});
+['pointerup','pointercancel'].forEach(ev => viewport.addEventListener(ev, () => dragging = false));
+
+// zoom, keeping the viewport's current center fixed
+zoomSlider.addEventListener('input', e => {
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  const centerImgX = (vw/2 - offsetX) / scale;
+  const centerImgY = (vh/2 - offsetY) / scale;
+  scale = baseScale * (e.target.value / 100);
+  offsetX = vw/2 - centerImgX * scale;
+  offsetY = vh/2 - centerImgY * scale;
+  clampOffsets();
+  applyTransform();
+});
+
+filenameInput.addEventListener('input', () => { filenameTouched = true; });
+
+downloadBtn.addEventListener('click', () => {
+  if (!selectedSize || !naturalW) return;
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  const sx = (0 - offsetX) / scale;
+  const sy = (0 - offsetY) / scale;
+  const sW = vw / scale;
+  const sH = vh / scale;
+  const targetW = selectedSize.w * 16;
+  const targetH = selectedSize.h * 16;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = targetW;
+  canvas.height = targetH;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(cropImg, sx, sy, sW, sH, 0, 0, targetW, targetH);
+
+  canvas.toBlob(blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    let name = filenameInput.value.trim() || `painting_${selectedSize.w}x${selectedSize.h}.png`;
+    if (!name.toLowerCase().endsWith('.png')) name += '.png';
+    a.download = name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 'image/png');
+});
+
+window.addEventListener('resize', () => { if (naturalW) layoutImage(); });
+
+// PWA: register service worker so the app becomes installable once hosted over https
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('service-worker.js').catch(() => {});
+  });
+}
+</script>
+</body>
+</html>
