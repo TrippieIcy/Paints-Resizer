@@ -272,254 +272,165 @@
 </div>
 
 <script>
-const SIZES = [
-  {w:1,h:1},{w:1,h:2},{w:2,h:1},
-  {w:2,h:2},{w:3,h:3},{w:3,h:4},
-  {w:4,h:2},{w:4,h:3},{w:4,h:4},
-];
-const MAX_BOX = 280;
-
-// Vanilla Minecraft painting textures are 16px per block (a 4x4 painting
-// is only 64x64px total) — that's why it still looked soft up close even
-// after fixing the downscale quality: there just weren't enough pixels
-// to begin with, no resampling algorithm can invent detail that isn't
-// there. The painting model maps the artwork across 100% of whatever
-// image is loaded (it doesn't hardcode 16px anywhere), so a
-// higher-resolution PNG drops in with zero changes needed on the addon
-// side — Minecraft just stretches it over the same frame with more
-// texel density. 64 here is 4x vanilla's native resolution.
-const PX_PER_BLOCK = 64;
-
-const sizeGrid = document.getElementById('sizeGrid');
-const step2 = document.getElementById('step2');
-const step3 = document.getElementById('step3');
-const step4 = document.getElementById('step4');
-const dropzone = document.getElementById('dropzone');
-const dropzoneText = document.getElementById('dropzoneText');
-const fileInput = document.getElementById('fileInput');
-const viewport = document.getElementById('viewport');
-const cropImg = document.getElementById('cropImg');
-const plaque = document.getElementById('plaque');
-const zoomSlider = document.getElementById('zoomSlider');
-const filenameInput = document.getElementById('filenameInput');
-const downloadBtn = document.getElementById('downloadBtn');
-
-let selectedSize = null;
-let naturalW = 0, naturalH = 0;
-let scale = 1, baseScale = 1, offsetX = 0, offsetY = 0;
-let dragging = false, dragStart = {x:0,y:0}, startOffset = {x:0,y:0};
-let filenameTouched = false;
-
-// build size picker
-SIZES.forEach(size => {
-  const btn = document.createElement('button');
-  btn.className = 'size-btn';
-  btn.type = 'button';
-
-  const mini = document.createElement('div');
-  mini.className = 'mini';
-  mini.style.gridTemplateColumns = `repeat(${size.w}, 6px)`;
-  mini.style.gridTemplateRows = `repeat(${size.h}, 6px)`;
-  for (let i = 0; i < size.w * size.h; i++) mini.appendChild(document.createElement('div'));
-
-  const lbl = document.createElement('span');
-  lbl.className = 'lbl';
-  lbl.textContent = `${size.w}×${size.h}`;
-
-  btn.appendChild(mini);
-  btn.appendChild(lbl);
-  btn.addEventListener('click', () => selectSize(size, btn));
-  sizeGrid.appendChild(btn);
+const _a=[{w:1,h:1},{w:1,h:2},{w:2,h:1},{w:2,h:2},{w:3,h:3},{w:3,h:4},{w:4,h:2},{w:4,h:3},{w:4,h:4}];
+const _b=280;
+const _c=64;
+const _d=document.getElementById('sizeGrid');
+const _e=document.getElementById('step2');
+const _f=document.getElementById('step3');
+const _g=document.getElementById('step4');
+const _h=document.getElementById('dropzone');
+const _i=document.getElementById('dropzoneText');
+const _j=document.getElementById('fileInput');
+const _k=document.getElementById('viewport');
+const _l=document.getElementById('cropImg');
+const _m=document.getElementById('plaque');
+const _n=document.getElementById('zoomSlider');
+const _o=document.getElementById('filenameInput');
+const _p=document.getElementById('downloadBtn');
+let _q=null,_r=0,_s=0,_t=1,_u=1,_v=0,_w=0,_x=false,_y={x:0,y:0},_z={x:0,y:0},_A=false;
+_a.forEach(size=>{
+const btn=document.createElement('button');
+btn.className='size-btn';btn.type='button';
+const mini=document.createElement('div');
+mini.className='mini';
+mini.style.gridTemplateColumns=`repeat(${size.w}, 6px)`;
+mini.style.gridTemplateRows=`repeat(${size.h}, 6px)`;
+for(let i=0;i<size.w*size.h;i++)mini.appendChild(document.createElement('div'));
+const lbl=document.createElement('span');
+lbl.className='lbl';lbl.textContent=`${size.w}×${size.h}`;
+btn.appendChild(mini);btn.appendChild(lbl);
+btn.addEventListener('click',()=>_B(size,btn));
+_d.appendChild(btn);
 });
-
-function selectSize(size, btn) {
-  selectedSize = size;
-  document.querySelectorAll('.size-btn').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-
-  step2.removeAttribute('data-locked');
-  fileInput.disabled = false;
-
-  if (!filenameTouched) {
-    filenameInput.value = `painting_${size.w}x${size.h}.png`;
-  }
-  plaque.textContent = `${size.w*PX_PER_BLOCK} × ${size.h*PX_PER_BLOCK} px`;
-
-  if (naturalW) layoutImage();
+function _B(size,btn){
+_q=size;
+document.querySelectorAll('.size-btn').forEach(b=>b.classList.remove('active'));
+btn.classList.add('active');
+_e.removeAttribute('data-locked');
+_j.disabled=false;
+if(!_A){_o.value=`painting_${size.w}x${size.h}.png`;}
+_m.textContent=`${size.w*_c} × ${size.h*_c} px`;
+if(_r)_D();
 }
-
-// upload handling
-dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
-dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
-dropzone.addEventListener('drop', e => {
-  e.preventDefault();
-  dropzone.classList.remove('drag');
-  const f = e.dataTransfer.files[0];
-  if (f) handleFile(f);
+_h.addEventListener('dragover',e=>{e.preventDefault();_h.classList.add('drag');});
+_h.addEventListener('dragleave',()=>_h.classList.remove('drag'));
+_h.addEventListener('drop',e=>{
+e.preventDefault();_h.classList.remove('drag');
+const f=e.dataTransfer.files[0];
+if(f)_C(f);
 });
-fileInput.addEventListener('change', e => {
-  const f = e.target.files[0];
-  if (f) handleFile(f);
+_j.addEventListener('change',e=>{
+const f=e.target.files[0];
+if(f)_C(f);
 });
-
-function handleFile(file) {
-  if (!file.type.startsWith('image/')) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    cropImg.onload = () => {
-      naturalW = cropImg.naturalWidth;
-      naturalH = cropImg.naturalHeight;
-      dropzoneText.textContent = file.name;
-      step3.removeAttribute('data-locked');
-      step4.removeAttribute('data-locked');
-      layoutImage();
-    };
-    cropImg.src = e.target.result;
-  };
-  reader.readAsDataURL(file);
+function _C(file){
+if(!file.type.startsWith('image/'))return;
+const reader=new FileReader();
+reader.onload=e=>{
+_l.onload=()=>{
+_r=_l.naturalWidth;_s=_l.naturalHeight;
+_i.textContent=file.name;
+_f.removeAttribute('data-locked');
+_g.removeAttribute('data-locked');
+_D();
+};
+_l.src=e.target.result;
+};
+reader.readAsDataURL(file);
 }
-
-function layoutImage() {
-  if (!selectedSize || !naturalW) return;
-  const ratio = selectedSize.w / selectedSize.h;
-  let boxW, boxH;
-  if (ratio >= 1) { boxW = MAX_BOX; boxH = MAX_BOX / ratio; }
-  else { boxH = MAX_BOX; boxW = MAX_BOX * ratio; }
-  viewport.style.width = boxW + 'px';
-  viewport.style.height = boxH + 'px';
-
-  requestAnimationFrame(() => {
-    const vw = viewport.clientWidth, vh = viewport.clientHeight;
-    baseScale = Math.max(vw / naturalW, vh / naturalH);
-    scale = baseScale;
-    zoomSlider.value = 100;
-    offsetX = (vw - naturalW * scale) / 2;
-    offsetY = (vh - naturalH * scale) / 2;
-    applyTransform();
-  });
-}
-
-function applyTransform() {
-  cropImg.style.width = naturalW * scale + 'px';
-  cropImg.style.height = naturalH * scale + 'px';
-  cropImg.style.transform = `translate(${offsetX}px, ${offsetY}px)`;
-}
-
-function clampOffsets() {
-  const vw = viewport.clientWidth, vh = viewport.clientHeight;
-  const dispW = naturalW * scale, dispH = naturalH * scale;
-  offsetX = Math.min(0, Math.max(vw - dispW, offsetX));
-  offsetY = Math.min(0, Math.max(vh - dispH, offsetY));
-}
-
-// drag to pan
-viewport.addEventListener('pointerdown', e => {
-  dragging = true;
-  viewport.setPointerCapture(e.pointerId);
-  dragStart = {x:e.clientX, y:e.clientY};
-  startOffset = {x:offsetX, y:offsetY};
+function _D(){
+if(!_q||!_r)return;
+const ratio=_q.w/_q.h;
+let boxW,boxH;
+if(ratio>=1){boxW=_b;boxH=_b/ratio;}else{boxH=_b;boxW=_b*ratio;}
+_k.style.width=boxW+'px';_k.style.height=boxH+'px';
+requestAnimationFrame(()=>{
+const vw=_k.clientWidth,vh=_k.clientHeight;
+_u=Math.max(vw/_r,vh/_s);_t=_u;
+_n.value=100;
+_v=(vw-_r*_t)/2;_w=(vh-_s*_t)/2;
+_E();
 });
-viewport.addEventListener('pointermove', e => {
-  if (!dragging) return;
-  offsetX = startOffset.x + (e.clientX - dragStart.x);
-  offsetY = startOffset.y + (e.clientY - dragStart.y);
-  clampOffsets();
-  applyTransform();
-});
-['pointerup','pointercancel'].forEach(ev => viewport.addEventListener(ev, () => dragging = false));
-
-// zoom, keeping the viewport's current center fixed
-zoomSlider.addEventListener('input', e => {
-  const vw = viewport.clientWidth, vh = viewport.clientHeight;
-  const centerImgX = (vw/2 - offsetX) / scale;
-  const centerImgY = (vh/2 - offsetY) / scale;
-  scale = baseScale * (e.target.value / 100);
-  offsetX = vw/2 - centerImgX * scale;
-  offsetY = vh/2 - centerImgY * scale;
-  clampOffsets();
-  applyTransform();
-});
-
-filenameInput.addEventListener('input', () => { filenameTouched = true; });
-
-// Shrinks an image region down to targetW x targetH in several halving
-// steps instead of one giant jump. A single ctx.drawImage() straight
-// from a multi-megapixel photo down to a 16-64px texture asks the
-// browser's built-in resampler to average away a huge ratio in one
-// pass — it isn't a real decimation filter, so the result comes out
-// soft/muddy no matter the imageSmoothingQuality setting. Halving
-// repeatedly (the same idea as generating mipmaps) keeps every
-// individual step within a ratio the filter handles well, which keeps
-// the final texture noticeably sharper at the same output size.
-function stepDownscale(source, sx, sy, sW, sH, targetW, targetH) {
-  // First, extract just the selected crop region at its native
-  // resolution — no scaling yet.
-  let cur = document.createElement('canvas');
-  cur.width = Math.max(1, Math.round(sW));
-  cur.height = Math.max(1, Math.round(sH));
-  let curCtx = cur.getContext('2d');
-  curCtx.imageSmoothingEnabled = true;
-  curCtx.imageSmoothingQuality = 'high';
-  curCtx.drawImage(source, sx, sy, sW, sH, 0, 0, cur.width, cur.height);
-
-  // Halve until the next halving would overshoot the target.
-  while (cur.width > targetW * 2 || cur.height > targetH * 2) {
-    const nextW = Math.max(targetW, Math.floor(cur.width / 2));
-    const nextH = Math.max(targetH, Math.floor(cur.height / 2));
-    const next = document.createElement('canvas');
-    next.width = nextW;
-    next.height = nextH;
-    const nextCtx = next.getContext('2d');
-    nextCtx.imageSmoothingEnabled = true;
-    nextCtx.imageSmoothingQuality = 'high';
-    nextCtx.drawImage(cur, 0, 0, cur.width, cur.height, 0, 0, nextW, nextH);
-    cur = next;
-  }
-
-  // Final draw to the exact target size (at most a 2x step by now).
-  const out = document.createElement('canvas');
-  out.width = targetW;
-  out.height = targetH;
-  const outCtx = out.getContext('2d');
-  outCtx.imageSmoothingEnabled = true;
-  outCtx.imageSmoothingQuality = 'high';
-  outCtx.drawImage(cur, 0, 0, cur.width, cur.height, 0, 0, targetW, targetH);
-  return out;
 }
-
-downloadBtn.addEventListener('click', () => {
-  if (!selectedSize || !naturalW) return;
-  const vw = viewport.clientWidth, vh = viewport.clientHeight;
-  const sx = (0 - offsetX) / scale;
-  const sy = (0 - offsetY) / scale;
-  const sW = vw / scale;
-  const sH = vh / scale;
-  const targetW = selectedSize.w * PX_PER_BLOCK;
-  const targetH = selectedSize.h * PX_PER_BLOCK;
-
-  const canvas = stepDownscale(cropImg, sx, sy, sW, sH, targetW, targetH);
-
-  canvas.toBlob(blob => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    let name = filenameInput.value.trim() || `painting_${selectedSize.w}x${selectedSize.h}.png`;
-    if (!name.toLowerCase().endsWith('.png')) name += '.png';
-    a.download = name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 'image/png');
+function _E(){
+_l.style.width=_r*_t+'px';
+_l.style.height=_s*_t+'px';
+_l.style.transform=`translate(${_v}px, ${_w}px)`;
+}
+function _F(){
+const vw=_k.clientWidth,vh=_k.clientHeight;
+const dispW=_r*_t,dispH=_s*_t;
+_v=Math.min(0,Math.max(vw-dispW,_v));
+_w=Math.min(0,Math.max(vh-dispH,_w));
+}
+_k.addEventListener('pointerdown',e=>{
+_x=true;
+_k.setPointerCapture(e.pointerId);
+_y={x:e.clientX,y:e.clientY};
+_z={x:_v,y:_w};
 });
-
-window.addEventListener('resize', () => { if (naturalW) layoutImage(); });
-
-// PWA: register service worker so the app becomes installable once hosted over https
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('service-worker.js').catch(() => {});
-  });
+_k.addEventListener('pointermove',e=>{
+if(!_x)return;
+_v=_z.x+(e.clientX-_y.x);
+_w=_z.y+(e.clientY-_y.y);
+_F();_E();
+});
+['pointerup','pointercancel'].forEach(ev=>_k.addEventListener(ev,()=>_x=false));
+_n.addEventListener('input',e=>{
+const vw=_k.clientWidth,vh=_k.clientHeight;
+const cx=(vw/2-_v)/_t,cy=(vh/2-_w)/_t;
+_t=_u*(e.target.value/100);
+_v=vw/2-cx*_t;_w=vh/2-cy*_t;
+_F();_E();
+});
+_o.addEventListener('input',()=>{_A=true;});
+function _G(source,sx,sy,sW,sH,targetW,targetH){
+let cur=document.createElement('canvas');
+cur.width=Math.max(1,Math.round(sW));
+cur.height=Math.max(1,Math.round(sH));
+let curCtx=cur.getContext('2d');
+curCtx.imageSmoothingEnabled=true;curCtx.imageSmoothingQuality='high';
+curCtx.drawImage(source,sx,sy,sW,sH,0,0,cur.width,cur.height);
+while(cur.width>targetW*2||cur.height>targetH*2){
+const nextW=Math.max(targetW,Math.floor(cur.width/2));
+const nextH=Math.max(targetH,Math.floor(cur.height/2));
+const next=document.createElement('canvas');
+next.width=nextW;next.height=nextH;
+const nextCtx=next.getContext('2d');
+nextCtx.imageSmoothingEnabled=true;nextCtx.imageSmoothingQuality='high';
+nextCtx.drawImage(cur,0,0,cur.width,cur.height,0,0,nextW,nextH);
+cur=next;
+}
+const out=document.createElement('canvas');
+out.width=targetW;out.height=targetH;
+const outCtx=out.getContext('2d');
+outCtx.imageSmoothingEnabled=true;outCtx.imageSmoothingQuality='high';
+outCtx.drawImage(cur,0,0,cur.width,cur.height,0,0,targetW,targetH);
+return out;
+}
+_p.addEventListener('click',()=>{
+if(!_q||!_r)return;
+const vw=_k.clientWidth,vh=_k.clientHeight;
+const sx=(0-_v)/_t,sy=(0-_w)/_t,sW=vw/_t,sH=vh/_t;
+const targetW=_q.w*_c,targetH=_q.h*_c;
+const canvas=_G(_l,sx,sy,sW,sH,targetW,targetH);
+canvas.toBlob(blob=>{
+const url=URL.createObjectURL(blob);
+const el=document.createElement('a');
+el.href=url;
+let name=_o.value.trim()||`painting_${_q.w}x${_q.h}.png`;
+if(!name.toLowerCase().endsWith('.png'))name+='.png';
+el.download=name;
+document.body.appendChild(el);el.click();document.body.removeChild(el);
+URL.revokeObjectURL(url);
+},'image/png');
+});
+window.addEventListener('resize',()=>{if(_r)_D();});
+if('serviceWorker' in navigator){
+window.addEventListener('load',()=>{
+navigator.serviceWorker.register('service-worker.js').catch(()=>{});
+});
 }
 </script>
 </body>
