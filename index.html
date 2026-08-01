@@ -186,33 +186,6 @@
     flex:1;
     accent-color:var(--wood);
   }
-  .nudge-pad{
-    display:grid;
-    grid-template-columns:repeat(3, 40px);
-    grid-template-rows:repeat(3, 40px);
-    gap:4px;
-    justify-content:center;
-    margin-top:14px;
-  }
-  .nudge-btn{
-    background:var(--panel);
-    border:1px solid #33291F;
-    border-radius:8px;
-    color:var(--text);
-    font-size:15px;
-    cursor:pointer;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-  }
-  .nudge-btn:active{background:var(--panel-2); border-color:var(--wood);}
-  .nudge-center{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    color:var(--muted);
-    font-size:13px;
-  }
 
   /* export */
   .filename-input{
@@ -286,18 +259,7 @@
     </div>
     <div class="zoom-row">
       <span>Zoom</span>
-      <input type="range" id="zoomSlider" min="20" max="400" value="100">
-    </div>
-    <div class="nudge-pad" id="nudgePad">
-      <span></span>
-      <button type="button" class="nudge-btn" data-dx="0" data-dy="-1" aria-label="Up">▲</button>
-      <span></span>
-      <button type="button" class="nudge-btn" data-dx="-1" data-dy="0" aria-label="Left">◀</button>
-      <span class="nudge-center">✛</span>
-      <button type="button" class="nudge-btn" data-dx="1" data-dy="0" aria-label="Right">▶</button>
-      <span></span>
-      <button type="button" class="nudge-btn" data-dx="0" data-dy="1" aria-label="Down">▼</button>
-      <span></span>
+      <input type="range" id="zoomSlider" min="100" max="400" value="100">
     </div>
   </section>
 
@@ -435,15 +397,8 @@ function applyTransform() {
 function clampOffsets() {
   const vw = viewport.clientWidth, vh = viewport.clientHeight;
   const dispW = naturalW * scale, dispH = naturalH * scale;
-  // When the image is larger than the frame (normal case), this keeps it
-  // covering the frame edge-to-edge while panning. When zoomed out past
-  // that (dispW/dispH smaller than the frame), it instead lets the image
-  // slide freely from flush-left to flush-right (and flush-top to
-  // flush-bottom), so it can still be repositioned inside the frame.
-  const loX = Math.min(0, vw - dispW), hiX = Math.max(0, vw - dispW);
-  const loY = Math.min(0, vh - dispH), hiY = Math.max(0, vh - dispH);
-  offsetX = Math.min(hiX, Math.max(loX, offsetX));
-  offsetY = Math.min(hiY, Math.max(loY, offsetY));
+  offsetX = Math.min(0, Math.max(vw - dispW, offsetX));
+  offsetY = Math.min(0, Math.max(vh - dispH, offsetY));
 }
 
 // drag to pan
@@ -474,20 +429,52 @@ zoomSlider.addEventListener('input', e => {
   applyTransform();
 });
 
-// nudge pad: precise left/right/up/down adjustment (in addition to
-// dragging the image directly), handy for fine-tuning on a phone.
-const NUDGE_STEP = 8; // px per tap, at the viewport's own scale
-document.querySelectorAll('.nudge-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    if (!naturalW) return;
-    offsetX += Number(btn.dataset.dx) * NUDGE_STEP;
-    offsetY += Number(btn.dataset.dy) * NUDGE_STEP;
-    clampOffsets();
-    applyTransform();
-  });
-});
-
 filenameInput.addEventListener('input', () => { filenameTouched = true; });
+
+// Shrinks an image region down to targetW x targetH in several halving
+// steps instead of one giant jump. A single ctx.drawImage() straight
+// from a multi-megapixel photo down to a 16-64px texture asks the
+// browser's built-in resampler to average away a huge ratio in one
+// pass — it isn't a real decimation filter, so the result comes out
+// soft/muddy no matter the imageSmoothingQuality setting. Halving
+// repeatedly (the same idea as generating mipmaps) keeps every
+// individual step within a ratio the filter handles well, which keeps
+// the final texture noticeably sharper at the same output size.
+function stepDownscale(source, sx, sy, sW, sH, targetW, targetH) {
+  // First, extract just the selected crop region at its native
+  // resolution — no scaling yet.
+  let cur = document.createElement('canvas');
+  cur.width = Math.max(1, Math.round(sW));
+  cur.height = Math.max(1, Math.round(sH));
+  let curCtx = cur.getContext('2d');
+  curCtx.imageSmoothingEnabled = true;
+  curCtx.imageSmoothingQuality = 'high';
+  curCtx.drawImage(source, sx, sy, sW, sH, 0, 0, cur.width, cur.height);
+
+  // Halve until the next halving would overshoot the target.
+  while (cur.width > targetW * 2 || cur.height > targetH * 2) {
+    const nextW = Math.max(targetW, Math.floor(cur.width / 2));
+    const nextH = Math.max(targetH, Math.floor(cur.height / 2));
+    const next = document.createElement('canvas');
+    next.width = nextW;
+    next.height = nextH;
+    const nextCtx = next.getContext('2d');
+    nextCtx.imageSmoothingEnabled = true;
+    nextCtx.imageSmoothingQuality = 'high';
+    nextCtx.drawImage(cur, 0, 0, cur.width, cur.height, 0, 0, nextW, nextH);
+    cur = next;
+  }
+
+  // Final draw to the exact target size (at most a 2x step by now).
+  const out = document.createElement('canvas');
+  out.width = targetW;
+  out.height = targetH;
+  const outCtx = out.getContext('2d');
+  outCtx.imageSmoothingEnabled = true;
+  outCtx.imageSmoothingQuality = 'high';
+  outCtx.drawImage(cur, 0, 0, cur.width, cur.height, 0, 0, targetW, targetH);
+  return out;
+}
 
 downloadBtn.addEventListener('click', () => {
   if (!selectedSize || !naturalW) return;
@@ -499,13 +486,7 @@ downloadBtn.addEventListener('click', () => {
   const targetW = selectedSize.w * 16;
   const targetH = selectedSize.h * 16;
 
-  const canvas = document.createElement('canvas');
-  canvas.width = targetW;
-  canvas.height = targetH;
-  const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(cropImg, sx, sy, sW, sH, 0, 0, targetW, targetH);
+  const canvas = stepDownscale(cropImg, sx, sy, sW, sH, targetW, targetH);
 
   canvas.toBlob(blob => {
     const url = URL.createObjectURL(blob);
