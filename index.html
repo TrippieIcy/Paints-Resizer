@@ -279,6 +279,17 @@ const SIZES = [
 ];
 const MAX_BOX = 280;
 
+// Vanilla Minecraft painting textures are 16px per block (a 4x4 painting
+// is only 64x64px total) — that's why it still looked soft up close even
+// after fixing the downscale quality: there just weren't enough pixels
+// to begin with, no resampling algorithm can invent detail that isn't
+// there. The painting model maps the artwork across 100% of whatever
+// image is loaded (it doesn't hardcode 16px anywhere), so a
+// higher-resolution PNG drops in with zero changes needed on the addon
+// side — Minecraft just stretches it over the same frame with more
+// texel density. 64 here is 4x vanilla's native resolution.
+const PX_PER_BLOCK = 64;
+
 const sizeGrid = document.getElementById('sizeGrid');
 const step2 = document.getElementById('step2');
 const step3 = document.getElementById('step3');
@@ -332,7 +343,7 @@ function selectSize(size, btn) {
   if (!filenameTouched) {
     filenameInput.value = `painting_${size.w}x${size.h}.png`;
   }
-  plaque.textContent = `${size.w*16} × ${size.h*16} px`;
+  plaque.textContent = `${size.w*PX_PER_BLOCK} × ${size.h*PX_PER_BLOCK} px`;
 
   if (naturalW) layoutImage();
 }
@@ -483,8 +494,8 @@ downloadBtn.addEventListener('click', () => {
   const sy = (0 - offsetY) / scale;
   const sW = vw / scale;
   const sH = vh / scale;
-  const targetW = selectedSize.w * 16;
-  const targetH = selectedSize.h * 16;
+  const targetW = selectedSize.w * PX_PER_BLOCK;
+  const targetH = selectedSize.h * PX_PER_BLOCK;
 
   const canvas = stepDownscale(cropImg, sx, sy, sW, sH, targetW, targetH);
 
